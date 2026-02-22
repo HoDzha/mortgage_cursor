@@ -1,11 +1,20 @@
 """
 Ипотечный калькулятор — веб-приложение на Flask.
 Расчёт аннуитетного платежа и переплаты по кредиту.
+Поддержка досрочных платежей: уменьшение платежа или срока.
 """
 
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
+
+
+def _annuity_payment(principal: float, months: int, r: float) -> float:
+    """Аннуитетный платёж: P * (r*(1+r)^n) / ((1+r)^n - 1). При r=0: P/n."""
+    if r == 0:
+        return principal / months if months > 0 else 0.0
+    rn = (1 + r) ** months
+    return principal * (r * rn) / (rn - 1)
 
 
 def mortgage_calculate(principal: float, years: int, rate_percent: float) -> dict:
@@ -87,13 +96,99 @@ def mortgage_calculate(principal: float, years: int, rate_percent: float) -> dic
     }
 
 
+def mortgage_calculate_with_early(
+    principal: float,
+    years: int,
+    rate_percent: float,
+    early_payments: list,
+    reduction_type: str,
+) -> dict:
+    """
+    Расчёт с досрочными платежами.
+    early_payments: список { "month": int, "amount": float }.
+    reduction_type: "payment" — уменьшать платёж, "term" — уменьшать срок.
+    """
+    if not early_payments:
+        return mortgage_calculate(principal, years, rate_percent)
+
+    months_total = years * 12
+    r = (rate_percent / 100) / 12
+    early_by_month = {}
+    for e in early_payments:
+        m = int(e.get("month", 0))
+        a = float(e.get("amount", 0))
+        if m > 0 and a > 0:
+            early_by_month[m] = early_by_month.get(m, 0) + a
+
+    if r == 0:
+        monthly = round(principal / months_total, 2)
+    else:
+        monthly = round(_annuity_payment(principal, months_total, r), 2)
+
+    schedule = []
+    balance = principal
+    total_paid_sum = 0.0
+    month = 0
+    max_months = months_total * 2
+
+    while balance > 0 and month < max_months:
+        month += 1
+        if r == 0:
+            principal_portion = min(monthly, balance)
+            interest = 0.0
+        else:
+            interest = balance * r
+            principal_portion = min(monthly - interest, balance)
+            if principal_portion < 0:
+                principal_portion = 0
+            if balance - principal_portion < 0.02:
+                principal_portion = balance
+
+        payment = round(principal_portion + interest, 2)
+        balance = round(balance - principal_portion, 2)
+        early = min(early_by_month.get(month, 0), balance)
+        if early > 0:
+            balance = round(balance - early, 2)
+            payment = round(payment + early, 2)
+            if reduction_type == "payment" and balance > 0:
+                remaining = months_total - month
+                if remaining > 0:
+                    if r == 0:
+                        monthly = round(balance / remaining, 2)
+                    else:
+                        monthly = round(_annuity_payment(balance, remaining, r), 2)
+        total_paid_sum += payment
+        principal_total = principal_portion + early
+        schedule.append({
+            "month": month,
+            "payment": payment,
+            "principal": round(principal_total, 2),
+            "interest": round(interest, 2),
+            "balance": max(0, round(balance, 2)),
+        })
+        if balance <= 0:
+            break
+
+    overpayment = round(total_paid_sum - principal, 2)
+    return {
+        "monthly_payment": monthly,
+        "total_paid": round(total_paid_sum, 2),
+        "overpayment": overpayment,
+        "principal": round(principal, 2),
+        "months": len(schedule),
+        "schedule": schedule,
+    }
+
+
 def mortgage_from_property_price(
     property_price: float,
     initial_payment: float,
     years: int,
     rate_percent: float,
+    early_payments: list = None,
+    reduction_type: str = "payment",
 ) -> dict:
-    """Сумма кредита = стоимость недвижимости − первоначальный взнос. Расчёт с учётом взноса."""
+    """Сумма кредита = стоимость недвижимости − первоначальный взнос. Расчёт с учётом взноса и досрочных платежей."""
     if property_price <= 0:
         return {"error": "Стоимость недвижимости должна быть больше нуля."}
     if initial_payment < 0:
@@ -101,7 +196,11 @@ def mortgage_from_property_price(
     if initial_payment >= property_price:
         return {"error": "Первоначальный взнос не может быть больше или равен стоимости недвижимости."}
     principal = property_price - initial_payment
-    result = mortgage_calculate(principal, years, rate_percent)
+    early = early_payments or []
+    if early:
+        result = mortgage_calculate_with_early(principal, years, rate_percent, early, reduction_type)
+    else:
+        result = mortgage_calculate(principal, years, rate_percent)
     if "error" in result:
         return result
     result["property_price"] = round(property_price, 2)
@@ -125,10 +224,18 @@ def calculate():
         initial_payment = float(data.get("initial_payment", 0))
         years = int(data.get("years", 0))
         rate = float(data.get("rate", 0))
+        early_payments = data.get("early_payments") or []
+        reduction_type = data.get("reduction_type", "payment")
+        if reduction_type not in ("payment", "term"):
+            reduction_type = "payment"
     except (TypeError, ValueError):
         return jsonify({"error": "Проверьте введённые данные."}), 400
 
-    result = mortgage_from_property_price(property_price, initial_payment, years, rate)
+    result = mortgage_from_property_price(
+        property_price, initial_payment, years, rate,
+        early_payments=early_payments,
+        reduction_type=reduction_type,
+    )
     if "error" in result:
         return jsonify(result), 400
     return jsonify(result)

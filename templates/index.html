@@ -279,6 +279,41 @@
       display: none;
     }
 
+    .early-block-label { display: block; margin-bottom: 0.5rem; }
+    .early-type {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+      color: var(--text-soft);
+    }
+    .early-radio { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+    .early-radio input { accent-color: var(--accent); }
+    #early-payments-list { margin-bottom: 0.5rem; }
+    .early-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .early-row .early-month { width: 5rem; padding: 0.5rem; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.5); font-family: inherit; }
+    .early-row .early-amount { flex: 1; min-width: 0; padding: 0.5rem; border-radius: 10px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.5); font-family: inherit; }
+    .early-row .btn-remove-early { padding: 0.5rem 0.6rem; font-size: 0.85rem; color: var(--text-soft); background: rgba(255,255,255,0.4); border: 1px solid var(--glass-border); border-radius: 10px; cursor: pointer; }
+    .early-row .btn-remove-early:hover { background: rgba(239,68,68,0.2); color: #b91c1c; }
+    .btn-add-early {
+      padding: 0.5rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      color: var(--accent);
+      background: rgba(67, 97, 238, 0.12);
+      border: 1px dashed var(--accent);
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-add-early:hover { background: rgba(67, 97, 238, 0.2); }
+
     /* Блок результата — стекло */
     .result-card {
       margin-top: 1.5rem;
@@ -479,6 +514,15 @@
           <label for="rate">Процентная ставка, % годовых</label>
           <input type="number" id="rate" name="rate" placeholder="Например: 12.5" min="0" max="100" step="0.1">
         </div>
+        <div class="form-group early-block">
+          <label class="early-block-label">Досрочные платежи <span class="optional">(необязательно)</span></label>
+          <div class="early-type">
+            <label class="early-radio"><input type="radio" name="reduction_type" value="payment" checked> Уменьшать платёж</label>
+            <label class="early-radio"><input type="radio" name="reduction_type" value="term"> Уменьшать срок</label>
+          </div>
+          <div id="early-payments-list"></div>
+          <button type="button" class="btn-add-early" id="btn-add-early">+ Добавить досрочный платёж</button>
+        </div>
         <button type="submit" class="btn-calc">Рассчитать</button>
       </form>
     </div>
@@ -589,6 +633,23 @@
       rateGroup.classList.toggle('hidden', this.classList.contains('active'));
     });
 
+    var earlyList = document.getElementById('early-payments-list');
+    document.getElementById('btn-add-early').addEventListener('click', function () {
+      var row = document.createElement('div');
+      row.className = 'early-row';
+      row.innerHTML = '<input type="number" class="early-month" placeholder="Месяц" min="1" step="1">' +
+        '<input type="text" class="early-amount" placeholder="Сумма, ₽" autocomplete="off" data-formatted>' +
+        '<button type="button" class="btn-remove-early">Удалить</button>';
+      row.querySelector('.btn-remove-early').addEventListener('click', function () { row.remove(); });
+      row.querySelector('.early-amount').addEventListener('input', function () {
+        var start = this.selectionStart, oldLen = this.value.length;
+        this.value = formatThousands(this.value);
+        var newLen = this.value.length;
+        this.setSelectionRange(Math.max(0, start + newLen - oldLen), Math.max(0, start + newLen - oldLen));
+      });
+      earlyList.appendChild(row);
+    });
+
     document.querySelectorAll('input[data-formatted]').forEach(input => {
       input.addEventListener('input', function() {
         const start = this.selectionStart;
@@ -614,12 +675,26 @@
       const years = parseInt(document.getElementById('years').value, 10) || 0;
       const isInstallment = document.getElementById('btn-installment').classList.contains('active');
       const rate = isInstallment ? 0 : (parseFloat(document.getElementById('rate').value.replace(',', '.')) || 0);
+      var earlyPayments = [];
+      document.querySelectorAll('.early-row').forEach(function (r) {
+        var m = parseInt(r.querySelector('.early-month').value, 10);
+        var a = parseFormatted(r.querySelector('.early-amount'));
+        if (m >= 1 && a > 0) earlyPayments.push({ month: m, amount: a });
+      });
+      var reductionType = document.querySelector('input[name="reduction_type"]:checked').value;
 
       try {
         const res = await fetch('/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ property_price: propertyPrice, initial_payment: initialPayment, years, rate })
+          body: JSON.stringify({
+            property_price: propertyPrice,
+            initial_payment: initialPayment,
+            years,
+            rate,
+            early_payments: earlyPayments,
+            reduction_type: reductionType
+          })
         });
         const data = await res.json();
 
