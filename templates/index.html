@@ -474,6 +474,19 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .schedule-export-wrap { margin-top: 1rem; }
+    .btn-export-excel {
+      padding: 0.6rem 1rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      color: #0d7a3d;
+      background: rgba(13, 122, 61, 0.12);
+      border: 1px solid rgba(13, 122, 61, 0.4);
+      border-radius: 12px;
+      cursor: pointer;
+    }
+    .btn-export-excel:hover { background: rgba(13, 122, 61, 0.2); }
+
     .schedule-table tbody tr:hover {
       background: rgba(255, 255, 255, 0.08);
     }
@@ -587,6 +600,9 @@
           </thead>
           <tbody id="schedule-tbody"></tbody>
         </table>
+      </div>
+      <div class="schedule-export-wrap">
+        <button type="button" class="btn-export-excel" id="btn-export-excel">Скачать таблицу в Excel</button>
       </div>
     </div>
 
@@ -820,11 +836,39 @@
               '<td class="num">' + formatMoneyTable(row.balance) + '</td>' +
               '</tr>';
           }).join('');
+          window.lastSchedule = schedule;
           scheduleCard.classList.add('visible');
+        } else {
+          window.lastSchedule = null;
         }
       } catch (err) {
         errorMsg.textContent = 'Ошибка соединения с сервером.';
         errorMsg.classList.add('visible');
+      }
+    });
+
+    document.getElementById('btn-export-excel').addEventListener('click', async function () {
+      if (!window.lastSchedule || !window.lastSchedule.length) return;
+      try {
+        var res = await fetch('/export/excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ schedule: window.lastSchedule })
+        });
+        if (!res.ok) {
+          var err = await res.json().catch(function () { return {}; });
+          alert(err.error || 'Ошибка экспорта.');
+          return;
+        }
+        var blob = await res.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'grafik-platezhey.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert('Ошибка при скачивании файла.');
       }
     });
   </script>

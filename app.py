@@ -4,7 +4,11 @@
 Поддержка досрочных платежей: уменьшение платежа или срока.
 """
 
-from flask import Flask, render_template, request, jsonify
+import io
+from flask import Flask, render_template, request, jsonify, send_file
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 app = Flask(__name__)
 
@@ -239,6 +243,41 @@ def calculate():
     if "error" in result:
         return jsonify(result), 400
     return jsonify(result)
+
+
+@app.route("/export/excel", methods=["POST"])
+def export_excel():
+    """Принимает JSON с полем schedule (список строк графика), возвращает .xlsx файл."""
+    data = request.get_json() or {}
+    schedule = data.get("schedule") or []
+    if not schedule:
+        return jsonify({"error": "Нет данных для экспорта."}), 400
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "График платежей"
+    headers = ["Месяц", "Платёж, ₽", "Основной долг, ₽", "Проценты, ₽", "Остаток долга, ₽"]
+    thin = Side(style="thin", color="CCCCCC")
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+    for row_idx, row in enumerate(schedule, 2):
+        ws.cell(row=row_idx, column=1, value=row.get("month"))
+        for col_idx, key in enumerate(["payment", "principal", "interest", "balance"], 2):
+            val = row.get(key, 0)
+            ws.cell(row=row_idx, column=col_idx, value=round(float(val), 2))
+    for col in range(1, 6):
+        ws.column_dimensions[get_column_letter(col)].width = 16
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="grafik-platezhey.xlsx",
+    )
 
 
 if __name__ == "__main__":
