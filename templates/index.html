@@ -243,6 +243,42 @@
       transform: translateY(0);
     }
 
+    .form-group-toggle {
+      margin-bottom: 1rem;
+    }
+
+    .btn-toggle {
+      padding: 0.6rem 1.2rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-soft);
+      background: rgba(255, 255, 255, 0.5);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    .btn-toggle:hover {
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--text);
+    }
+
+    .btn-toggle.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    #rate-group {
+      transition: opacity 0.2s, margin 0.2s;
+    }
+
+    #rate-group.hidden {
+      display: none;
+    }
+
     /* Блок результата — стекло */
     .result-card {
       margin-top: 1.5rem;
@@ -436,7 +472,10 @@
           <label for="years">Срок кредита, лет</label>
           <input type="number" id="years" name="years" placeholder="Например: 20" min="1" max="50" step="1">
         </div>
-        <div class="form-group">
+        <div class="form-group form-group-toggle">
+          <button type="button" class="btn-toggle" id="btn-installment" aria-pressed="false">Рассрочка</button>
+        </div>
+        <div class="form-group" id="rate-group">
           <label for="rate">Процентная ставка, % годовых</label>
           <input type="number" id="rate" name="rate" placeholder="Например: 12.5" min="0" max="100" step="0.1">
         </div>
@@ -542,6 +581,14 @@
       return parseFloat(el.value.replace(/\s/g, '')) || 0;
     }
 
+    var btnInstallment = document.getElementById('btn-installment');
+    var rateGroup = document.getElementById('rate-group');
+    btnInstallment.addEventListener('click', function () {
+      this.classList.toggle('active');
+      this.setAttribute('aria-pressed', this.classList.contains('active'));
+      rateGroup.classList.toggle('hidden', this.classList.contains('active'));
+    });
+
     document.querySelectorAll('input[data-formatted]').forEach(input => {
       input.addEventListener('input', function() {
         const start = this.selectionStart;
@@ -565,7 +612,8 @@
       const propertyPrice = parseFormatted(document.getElementById('property_price'));
       const initialPayment = parseFormatted(document.getElementById('initial_payment'));
       const years = parseInt(document.getElementById('years').value, 10) || 0;
-      const rate = parseFloat(document.getElementById('rate').value.replace(',', '.')) || 0;
+      const isInstallment = document.getElementById('btn-installment').classList.contains('active');
+      const rate = isInstallment ? 0 : (parseFloat(document.getElementById('rate').value.replace(',', '.')) || 0);
 
       try {
         const res = await fetch('/calculate', {
