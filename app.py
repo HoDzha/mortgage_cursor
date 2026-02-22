@@ -32,10 +32,15 @@ def mortgage_calculate(principal: float, years: int, rate_percent: float) -> dic
         annuity_coef = (r * r_plus_one_n) / (r_plus_one_n - 1)
         monthly_exact = principal * annuity_coef
 
-    # Как в банках: платёж округляется до 2 знаков, общая сумма = платёж × срок
+    # Как в банках: платёж округляется до 2 знаков
     monthly_payment = round(monthly_exact, 2)
-    total_paid = monthly_payment * months
-    overpayment = total_paid - principal
+    if r == 0:
+        # При 0% общая сумма выплат = сумма кредита, переплата = 0 (без погрешности округления)
+        total_paid = principal
+        overpayment = 0.0
+    else:
+        total_paid = monthly_payment * months
+        overpayment = total_paid - principal
 
     # График погашения: помесячно платёж, основной долг, проценты, остаток
     schedule = []
