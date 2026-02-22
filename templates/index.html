@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ипотечный калькулятор</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --glass-bg: rgba(255, 255, 255, 0.12);
+      --glass-border: rgba(255, 255, 255, 0.25);
+      --glass-shadow: rgba(0, 0, 0, 0.1);
+      --text: #1a1a2e;
+      --text-soft: #2d2d44;
+      --accent: #4361ee;
+      --accent-light: #5c7cfa;
+      --glow: rgba(67, 97, 238, 0.4);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Manrope', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: var(--text);
+      background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 25%, #9fa8da 50%, #7986cb 75%, #5c6bc0 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 12s ease infinite;
+    }
+
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* Анимированные геометрические фигуры на фоне */
+    .bg-shapes {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .shape {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      opacity: 0.35;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .shape:nth-child(1) {
+      width: 320px;
+      height: 320px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      top: -80px;
+      left: -80px;
+      animation-delay: 0s;
+      animation-duration: 18s;
+    }
+
+    .shape:nth-child(2) {
+      width: 280px;
+      height: 280px;
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      top: 40%;
+      right: -60px;
+      animation-delay: -5s;
+      animation-duration: 22s;
+    }
+
+    .shape:nth-child(3) {
+      width: 240px;
+      height: 240px;
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      bottom: -40px;
+      left: 30%;
+      animation-delay: -10s;
+      animation-duration: 16s;
+    }
+
+    .shape:nth-child(4) {
+      width: 200px;
+      height: 200px;
+      background: linear-gradient(135deg, #43e97b, #38f9d7);
+      top: 60%;
+      left: -40px;
+      animation-delay: -3s;
+      animation-duration: 24s;
+    }
+
+    .shape:nth-child(5) {
+      width: 180px;
+      height: 180px;
+      background: linear-gradient(135deg, #fa709a, #fee140);
+      top: 15%;
+      right: 25%;
+      animation-delay: -7s;
+      animation-duration: 19s;
+    }
+
+    .shape-poly {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      opacity: 0.2;
+      animation: float 25s ease-in-out infinite;
+    }
+
+    .shape-poly.tri1 {
+      border-width: 0 120px 200px 120px;
+      border-color: transparent transparent #5c6bc0 transparent;
+      top: 20%;
+      right: 15%;
+      animation-delay: -2s;
+    }
+
+    .shape-poly.tri2 {
+      border-width: 150px 80px 0 80px;
+      border-color: #7986cb transparent transparent transparent;
+      bottom: 25%;
+      left: 10%;
+      animation-delay: -8s;
+      animation-duration: 21s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(30px, -40px) scale(1.05); }
+      50% { transform: translate(-20px, 20px) scale(0.95); }
+      75% { transform: translate(40px, 30px) scale(1.02); }
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      text-align: center;
+      color: var(--text);
+      text-shadow: 0 2px 10px rgba(255,255,255,0.5);
+    }
+
+    /* Глянцевый стеклянный блок — форма */
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 2rem;
+      max-width: 420px;
+      width: 100%;
+      box-shadow:
+        0 8px 32px var(--glass-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-soft);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-group label .optional {
+      font-weight: 400;
+      font-size: 0.8rem;
+      color: #6b6b8a;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      font-family: inherit;
+      font-size: 1rem;
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.5);
+      color: var(--text);
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .form-group input::placeholder {
+      color: #6b6b8a;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--glow);
+    }
+
+    /* Глянцевая кнопка */
+    .btn-calc {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent), #5c7cfa);
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      box-shadow:
+        0 4px 20px var(--glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transition: transform 0.15s, box-shadow 0.2s;
+    }
+
+    .btn-calc:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px var(--glow);
+    }
+
+    .btn-calc:active {
+      transform: translateY(0);
+    }
+
+    /* Блок результата — стекло */
+    .result-card {
+      margin-top: 1.5rem;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      max-width: 420px;
+      width: 100%;
+      box-shadow:
+        0 8px 32px var(--glass-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      display: none;
+    }
+
+    .result-card.visible {
+      display: block;
+      animation: fadeIn 0.4s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-soft);
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      font-size: 0.95rem;
+    }
+
+    .result-row .label {
+      color: var(--text-soft);
+    }
+
+    .result-row .value {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .result-row.highlight .value {
+      color: var(--accent);
+      font-size: 1.15rem;
+    }
+
+    .error-msg {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 12px;
+      color: #b91c1c;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .error-msg.visible {
+      display: block;
+    }
+
+    /* Блок «График платежей» */
+    .schedule-card {
+      margin-top: 1.5rem;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      max-width: 720px;
+      width: 100%;
+      box-shadow:
+        0 8px 32px var(--glass-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      display: none;
+    }
+
+    .schedule-card.visible {
+      display: block;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .schedule-card h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .schedule-chart-wrap {
+      margin-bottom: 1.25rem;
+    }
+
+    .schedule-chart {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      min-height: 260px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #e3f2fd 0%, #bbdefb 100%);
+      padding: 8px;
+    }
+
+    .schedule-chart canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .schedule-table-wrap {
+      overflow-x: auto;
+      max-height: 280px;
+      overflow-y: auto;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .schedule-table th {
+      position: sticky;
+      top: 0;
+      background: rgba(255, 255, 255, 0.4);
+      color: var(--text-soft);
+      font-weight: 600;
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--glass-border);
+      white-space: nowrap;
+    }
+
+    .schedule-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .schedule-table td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .schedule-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-shapes">
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape-poly tri1"></div>
+    <div class="shape-poly tri2"></div>
+  </div>
+
+  <main class="page">
+    <h1>Ипотечный калькулятор</h1>
+
+    <div class="glass-card">
+      <form id="calc-form">
+        <div class="form-group">
+          <label for="property_price">Стоимость недвижимости, ₽</label>
+          <input type="text" inputmode="numeric" id="property_price" name="property_price" placeholder="Например: 5 000 000" autocomplete="off" data-formatted>
+        </div>
+        <div class="form-group">
+          <label for="initial_payment">Первоначальный взнос, ₽ <span class="optional">(необязательно)</span></label>
+          <input type="text" inputmode="numeric" id="initial_payment" name="initial_payment" placeholder="0 или укажите сумму" autocomplete="off" data-formatted>
+        </div>
+        <div class="form-group">
+          <label for="years">Срок кредита, лет</label>
+          <input type="number" id="years" name="years" placeholder="Например: 20" min="1" max="50" step="1">
+        </div>
+        <div class="form-group">
+          <label for="rate">Процентная ставка, % годовых</label>
+          <input type="number" id="rate" name="rate" placeholder="Например: 12.5" min="0" max="100" step="0.1">
+        </div>
+        <button type="submit" class="btn-calc">Рассчитать</button>
+      </form>
+    </div>
+
+    <div class="result-card" id="result-card">
+      <h2>Результат расчёта</h2>
+      <div class="result-row">
+        <span class="label">Стоимость недвижимости</span>
+        <span class="value" id="property-price-display">—</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Сумма кредита (стоимость − взнос)</span>
+        <span class="value" id="principal-display">—</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Ежемесячный платёж</span>
+        <span class="value" id="monthly">—</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Общая сумма выплат по кредиту</span>
+        <span class="value" id="total">—</span>
+      </div>
+      <div class="result-row highlight">
+        <span class="label">Переплата по процентам</span>
+        <span class="value" id="overpayment">—</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Примерный доход для обслуживания (40% на платёж)</span>
+        <span class="value" id="required-income">—</span>
+      </div>
+      <div class="result-row">
+        <span class="label">Первоначальный взнос</span>
+        <span class="value" id="initial-display">—</span>
+      </div>
+      <div class="result-row" id="percent-row">
+        <span class="label">Доля взноса от стоимости</span>
+        <span class="value" id="down-payment-percent">—</span>
+      </div>
+      <div class="result-row highlight">
+        <span class="label">Общая стоимость (взнос + выплаты)</span>
+        <span class="value" id="total-cost">—</span>
+      </div>
+    </div>
+
+    <div class="schedule-card" id="schedule-card">
+      <h2>График расчётов</h2>
+      <div class="schedule-chart-wrap">
+        <div class="schedule-chart" id="schedule-chart">
+          <canvas id="schedule-chart-canvas"></canvas>
+        </div>
+      </div>
+      <div class="schedule-table-wrap">
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th>Месяц</th>
+              <th class="num">Платёж, ₽</th>
+              <th class="num">Основной долг, ₽</th>
+              <th class="num">Проценты, ₽</th>
+              <th class="num">Остаток долга, ₽</th>
+            </tr>
+          </thead>
+          <tbody id="schedule-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="error-msg" id="error-msg"></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const form = document.getElementById('calc-form');
+    const resultCard = document.getElementById('result-card');
+    const errorMsg = document.getElementById('error-msg');
+
+    function formatMoney(n) {
+      return new Intl.NumberFormat('ru-RU', {
+        style: 'decimal',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(n) + ' ₽';
+    }
+
+    function formatMoneyTable(n) {
+      return new Intl.NumberFormat('ru-RU', {
+        style: 'decimal',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(n);
+    }
+
+    function formatThousands(val) {
+      const digits = String(val).replace(/\D/g, '');
+      if (!digits) return '';
+      return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    }
+
+    function parseFormatted(el) {
+      return parseFloat(el.value.replace(/\s/g, '')) || 0;
+    }
+
+    document.querySelectorAll('input[data-formatted]').forEach(input => {
+      input.addEventListener('input', function() {
+        const start = this.selectionStart;
+        const oldLen = this.value.length;
+        const formatted = formatThousands(this.value);
+        this.value = formatted;
+        const newLen = this.value.length;
+        let newStart = start + (newLen - oldLen);
+        if (newStart < 0) newStart = 0;
+        if (newStart > this.value.length) newStart = this.value.length;
+        this.setSelectionRange(newStart, newStart);
+      });
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorMsg.classList.remove('visible');
+      resultCard.classList.remove('visible');
+      document.getElementById('schedule-card').classList.remove('visible');
+
+      const propertyPrice = parseFormatted(document.getElementById('property_price'));
+      const initialPayment = parseFormatted(document.getElementById('initial_payment'));
+      const years = parseInt(document.getElementById('years').value, 10) || 0;
+      const rate = parseFloat(document.getElementById('rate').value.replace(',', '.')) || 0;
+
+      try {
+        const res = await fetch('/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ property_price: propertyPrice, initial_payment: initialPayment, years, rate })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorMsg.textContent = data.error || 'Ошибка расчёта';
+          errorMsg.classList.add('visible');
+          return;
+        }
+
+        document.getElementById('property-price-display').textContent = formatMoney(data.property_price);
+        document.getElementById('principal-display').textContent = formatMoney(data.principal);
+        document.getElementById('monthly').textContent = formatMoney(data.monthly_payment);
+        document.getElementById('total').textContent = formatMoney(data.total_paid);
+        document.getElementById('overpayment').textContent = formatMoney(data.overpayment);
+        document.getElementById('required-income').textContent = formatMoney(data.required_monthly_income);
+        document.getElementById('initial-display').textContent = formatMoney(data.initial_payment);
+        document.getElementById('total-cost').textContent = formatMoney(data.total_cost);
+        const percentEl = document.getElementById('down-payment-percent');
+        percentEl.textContent = data.down_payment_percent != null
+          ? data.down_payment_percent + '%'
+          : '—';
+        resultCard.classList.add('visible');
+
+        if (data.schedule && data.schedule.length) {
+          const scheduleCard = document.getElementById('schedule-card');
+          const schedule = data.schedule;
+          const tbody = document.getElementById('schedule-tbody');
+          const canvas = document.getElementById('schedule-chart-canvas');
+
+          scheduleCard.classList.add('visible');
+
+          if (window.scheduleChartInstance) {
+            window.scheduleChartInstance.destroy();
+            window.scheduleChartInstance = null;
+          }
+
+          var labels = schedule.map(function (r) { return r.month; });
+          var interestData = schedule.map(function (r) { return r.interest; });
+          var principalData = schedule.map(function (r) { return r.principal; });
+
+          window.scheduleChartInstance = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: 'Проценты',
+                  data: interestData,
+                  backgroundColor: 'rgba(255, 235, 59, 0.7)',
+                  borderColor: '#f9a825',
+                  borderWidth: 1,
+                  fill: true,
+                  tension: 0.2,
+                  order: 2
+                },
+                {
+                  label: 'Основной долг',
+                  data: principalData,
+                  backgroundColor: 'rgba(179, 157, 219, 0.7)',
+                  borderColor: '#7e57c2',
+                  borderWidth: 1,
+                  fill: true,
+                  tension: 0.2,
+                  order: 1
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { intersect: false, mode: 'index' },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  labels: { font: { family: 'Manrope, sans-serif' }, color: '#2d2d44' }
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function (ctx) {
+                      var row = schedule[ctx.dataIndex];
+                      if (!row) return ctx.dataset.label + ': ' + ctx.parsed.y;
+                      if (ctx.datasetIndex === 0) return 'Проценты: ' + formatMoneyTable(row.interest) + ' \u20BD';
+                      return 'Основной долг: ' + formatMoneyTable(row.principal) + ' \u20BD';
+                    },
+                    title: function (items) {
+                      if (items.length && items[0].dataIndex >= 0 && schedule[items[0].dataIndex])
+                        return '\u041C\u0435\u0441\u044F\u0446 ' + schedule[items[0].dataIndex].month;
+                      return items[0].label || '';
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  stacked: true,
+                  grid: { color: 'rgba(0,0,0,0.06)' },
+                  ticks: { maxTicksLimit: 8, font: { size: 11 }, color: '#37474f' }
+                },
+                y: {
+                  stacked: true,
+                  grid: { color: 'rgba(0,0,0,0.06)' },
+                  ticks: {
+                    callback: function (v) {
+                      if (v >= 1000000) return (v / 1000000).toFixed(0) + ' \u043C\u043B\u043D \u20BD';
+                      if (v >= 1000) return (v / 1000).toFixed(0) + ' 000 \u20BD';
+                      return v + ' \u20BD';
+                    },
+                    font: { size: 11 },
+                    color: '#37474f'
+                  }
+                }
+              }
+            }
+          });
+
+          tbody.innerHTML = schedule.map(function (row) {
+            return '<tr>' +
+              '<td>' + row.month + '</td>' +
+              '<td class="num">' + formatMoneyTable(row.payment) + '</td>' +
+              '<td class="num">' + formatMoneyTable(row.principal) + '</td>' +
+              '<td class="num">' + formatMoneyTable(row.interest) + '</td>' +
+              '<td class="num">' + formatMoneyTable(row.balance) + '</td>' +
+              '</tr>';
+          }).join('');
+          scheduleCard.classList.add('visible');
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Ошибка соединения с сервером.';
+        errorMsg.classList.add('visible');
+      }
+    });
+  </script>
+</body>
+</html>
